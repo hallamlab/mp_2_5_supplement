@@ -1,0 +1,254 @@
+---
+title: "MetaPathways v2.5: Supplementary Material"
+author: "Kishori M. Konwar, Niels W. Hanson, Maya P. Bhatia, Dongjae Kim, Shang-Ju Wu, Aria S. Hahn, Connor Morgan-Lang, Hiu Kan Cheung, and Steven J. Hallam"
+date: "December 19, 2014"
+output: 
+    html_document:
+        theme: readable
+---
+
+The MetaPathways v2.5 release is available from GitHub with binaries compatible for various Linux and Mac OSX Operating Systems:
+
+http://github.com/hallamlab/metapathways2/releases
+
+```{r, echo=FALSE}
+wd <- "~/Dropbox/manuscripts/metapathways_2_5/mp_2_5_supplement/data/"
+```
+
+## Load Required R Packages and Data
+
+Data files can be found [here](https://www.dropbox.com/sh/kq0n07qikmh5rs5/AACwmp2cGLhFjiooHObuw-Sma?dl=0), or in the [Oxford Bioinformatics Supplementary Material]().
+
+* Pathways
+     * [01_jgi_4093112_combined_unique.pwy.txt.gz](https://www.dropbox.com/s/qzkfl2gka31em1q/01_jgi_4093112_combined_unique.pwy.txt.gz?dl=0): MetaCyc Pathway predictions and WTD calculations
+* BLAST and LAST outputs re
+     * [02_4093112_combined_unique.qced.faa.cog.last.common.txt.gz](https://www.dropbox.com/s/vg3aa1bno7prxkl/02_4093112_combined_unique.qced.faa.cog.blast.common.txt.gz?dl=0): Standard tabular BLAST results. 
+     * [03_4093112_combined_unique.qced.faa.cog.blast.common.txt.gz](https://www.dropbox.com/s/dhjge0nioghrius/03_4093112_combined_unique.qced.faa.cog.last.common.txt.gz?dl=0): Modified LAST output with E-value.
+* RPKM
+     * [04_rpkm_master_table_ORF_count.txt.gz](https://www.dropbox.com/s/rqncl0mpweep0dg/04_rpkm_master_table_ORF_count.txt.gz?dl=0): Master table of open reading frame (ORF) counts for all predicted MetaCyc Pathways.
+     * [05_rpkm_master_table_rpkm.txt.gz](https://www.dropbox.com/s/ppg39n61qq30uf8/05_rpkm_master_table_rpkm.txt.gz?dl=0): Master table Reads per kilobase per-million mapped (RPKM) values for all predicted MetaCyc Pathways.
+
+
+We are using [ggplot2](http://cran.r-project.org/web/packages/ggplot2/index.html), [reshape2](http://cran.r-project.org/web/packages/reshape2/), and [plyr](http://cran.r-project.org/web/packages/plyr/) R packages for plotting and data manipulation.
+
+* Load libraries.
+
+```{r, warning=FALSE}
+library(ggplot2)
+library(reshape2)
+library(plyr)
+```
+
+* Load data
+
+```{r}
+setwd(wd) # set working directory
+pwys <- read.table("01_jgi_4093112_combined_unique.pwy.txt.gz", header=T, sep="\t")
+blast <- read.table("02_4093112_combined_unique.qced.faa.cog.blast.common.txt.gz", comment.char="#", sep="\t", header=FALSE)
+last <- read.table("03_4093112_combined_unique.qced.faa.cog.last.common.txt.gz", comment.char="#", sep="\t", header=FALSE)          
+ORFs <- read.table("04_rpkm_master_table_ORF_count.txt.gz", sep="\t", header=T)
+RPKMs <- read.delim("05_rpkm_master_table_rpkm.txt.gz", sep="\t", header=T)
+```
+
+## WTD Hazard Calculation
+
+Here, we'll load the `.pwy.txt` file found found in the `<sample>/results/pgdb/` folder of a MetaPathways output, which now includes WTD calculated for each predicted MetaCyc pathway. We'll classify each predicted pathways based on the negative quartiles of the sample, and plot a histogram of the classification.
+
+```{r, warning=FALSE, cache=TRUE}
+# set all to default hazard class
+pwys$hazard_class = "None"
+
+# calculate summary statistics of negative WTD scores and set hazard classes
+wtd_stats <- summary(pwys$WTD[pwys$WTD < 0])
+pwys$hazard_class[pwys$WTD > wtd_stats["Median"]] = "Low"
+pwys$hazard_class[pwys$WTD > wtd_stats["1st Qu."] & pwys$WTD <= wtd_stats["Median"]] = "Medium"
+pwys$hazard_class[pwys$WTD <= wtd_stats["1st Qu."]] = "High"
+pwys$hazard_class[pwys$WTD >= 0] = "None"
+
+# factor new levels
+pwys$hazard_class <- factor(pwys$hazard_class, levels=c("None", "Low", "Medium", "High"))
+
+# create Figure 1a
+p1 <- ggplot(pwys, aes(x=WTD)) + geom_histogram(aes(fill=hazard_class), binwidth=0.1)
+p1 <- p1 + scale_fill_manual(name="Hazard Class",
+                             values=c("#CCCCCC", "#AFE591", "#FAA982", "#DF737D")) 
+p1 <- p1 + theme_bw(base_family="Gill Sans")
+p1 <- p1 + ylab("Pathway Frequency")
+p1 <- p1 + ggtitle("a")
+p1 <- p1 + theme(plot.title=element_text(size=30, vjust = 2),
+                 axis.title.x = element_text(size=14, vjust=-0.3),
+                 axis.title.y = element_text(size=14, vjust=1),
+                 legend.position="none")
+p1
+```
+
+## LAST vs. BLAST Comparison
+
+We modified the source code of LAST, and implemented BLAST-equivalent E-values and file output. Here we compare the E-values of BLAST and LAST on a common sample, and fit a linear model to show their correlation.
+
+* Prepare data
+
+```{r, warning=FALSE, message=FALSE, cache=TRUE}
+last$algo = "LAST"
+blast$algo = "BLAST"
+
+df <- rbind(last[-13], blast)
+df <- cbind(paste(df$V1, df$V2, sep = "_"),df)
+
+header <- c("hit", "query", "subject", "identity", "al_length", "missmatch", "gap_open", 
+            "query_start", "query_end", "subject_start", "subject_end",
+            "eval", "bit_score", "algo")
+
+colnames(df) <- header
+df.m <- melt(df)
+```
+
+* Fit Linear Model
+
+```{r, warning=FALSE}
+df.m.eval <- dcast(subset(df.m, variable=="eval"), hit~algo, max)
+df.m.eval$BLAST <- log(df.m.eval$BLAST) / log(10)
+df.m.eval$LAST <- log(df.m.eval$LAST) / log(10)
+df.m.eval[df.m.eval == "-Inf"] = NA
+
+df.m.eval <- df.m.eval[complete.cases(df.m.eval),]
+eval_fit <- lm(LAST ~ BLAST, data=df.m.eval)
+summary(eval_fit)
+```
+
+* Plot scatterplot with fit
+
+```{r warning=FALSE}
+# create Figure 1b
+set.seed(12345)
+samp <- sample(1:nrow(df.m.eval), round(nrow(df.m.eval)*1.0))
+df.m.eval.plot <- df.m.eval[samp,]
+p2 <- ggplot(df.m.eval.plot, aes(x=BLAST, y=LAST))
+p2 <- p2 + geom_point(size=3, alpha=0.05)
+p2 <- p2 + theme_bw(base_family="Gill Sans")
+p2 <- p2 + stat_smooth(formula="y ~ x", method="lm", se = FALSE, size=2)
+p2 <- p2 + xlab("BLAST E-value") + ylab("LAST E-value")
+p2 <- p2 + ggtitle("b")
+p2 <- p2 + theme(plot.title=element_text(size=30, vjust = 2),
+                 axis.title.x = element_text(size=14, vjust=-0.3),
+                 axis.title.y = element_text(size=14, vjust=1))
+p2
+```
+
+## ORF Counts vs. RPKM
+
+Finally, we'll compare ORF counts to the RPKM statistics for predicted MetaCyc pathways accross 91 metagenomes.
+
+* Prepare Data Frame of ORF and RPKM counts
+* Remove instances where there were both counts are zero
+
+```{r warning=FALSE}
+ORFs$measure <- "ORFs"
+RPKMs$measure <- "RPKMs"
+
+ORFs.m <- melt(ORFs, id.vars=c("pwy_short", "pwy_long", "measure"))
+RPKMs.m <- melt(RPKMs, id.vars=c("pwy_short", "pwy_long", "measure"))
+df <- rbind(ORFs.m, RPKMs.m)
+df.measure <- dcast(df, pwy_short*variable~measure)
+df.measure$ORFs <- as.numeric(df.measure$ORFs)
+
+# remove those where both zero
+df.measure.sub <- subset(df.measure, ORFs != 0 & RPKMs != 0)
+```
+
+* Fit Linear Model between ORF and RPKM counts
+
+```{r warning=FALSE}
+rpkm_fit <-  lm(I(log(RPKMs))~I(log(ORFs)), data=df.measure.sub)
+summary(rpkm_fit)
+```
+
+* Create confidence intervals with new data
+* Add to dataframe
+
+```{r}
+rpkm_direct_fit <- lm(I(log(RPKMs))~I(log(ORFs)), data=df.measure.sub)
+pred_interval <- predict(rpkm_direct_fit, df.measure.sub, interval="prediction", level =0.90)
+df.measure.sub$lwr <- exp(pred_interval[,"lwr"])
+df.measure.sub$upr <- exp(pred_interval[,"upr"])
+
+within <- df.measure.sub$RPKMs > df.measure.sub$lwr & df.measure.sub$RPKMs < df.measure.sub$upr
+df.measure.sub$within <- within
+head(df.measure.sub)
+
+```
+
+* Plot scatterplot with fit 
+
+```{r warning=FALSE}
+# create Figure 1c
+p3 <- ggplot(df.measure.sub, aes(ORFs, RPKMs))
+p3 <- p3 + geom_point(alpha=0.2, aes(color=within)) 
+p3 <- p3 + scale_x_log10(breaks=c(1,10,100,1000)) 
+p3 <- p3 + scale_y_log10(breaks=c(1,10,100,1000,10000)) 
+p3 <- p3 + stat_smooth(method="lm", formula="y~x", size=2) 
+p3 <- p3 + theme_bw(base_family="Gill Sans")
+p3 <- p3 + ylab("RPKM Value")
+p3 <- p3 + xlab("ORF Count")
+p3 <- p3 + ggtitle("c")
+p3 <- p3 + theme(plot.title=element_text(size=30, vjust = 2),
+                 axis.title.x = element_text(size=14, vjust=-0.3),
+                 axis.title.y = element_text(size=14, vjust=1))
+p3
+```
+
+* Put all three together for figure using [Winston Chang's `multiplot()` function](http://www.cookbook-r.com/Graphs/Multiple_graphs_on_one_page_(ggplot2)/)
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# Multiple plot function
+#
+# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
+# - cols:   Number of columns in layout
+# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
+#
+# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
+# then plot 1 will go in the upper left, 2 will go in the upper right, and
+# 3 will go all the way across the bottom.
+#
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  require(grid)
+
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+```
+
+```{r warning=FALSE, fig.width=16}
+multiplot(p1, p2, p3, cols=3)
+```
+
+Any questions or comments, please contact <shallam@mail.ubc.ca>.

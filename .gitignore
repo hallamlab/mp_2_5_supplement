@@ -1,0 +1,6 @@
+# exlucde data
+data
+data/
+data/*
+mp_2_5_supplement_cache
+mp_2_5_supplement_cache/*
