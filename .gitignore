@@ -8,3 +8,9 @@ mp_2_5_supplement_cache/*
 
 # RStudio files
 .Rhistory
+
+# Large figure
+figures/mp_2_5_figure1.pdf
+
+# OSX 
+.DS_Store

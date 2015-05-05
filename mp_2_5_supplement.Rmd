@@ -9,7 +9,7 @@ output:
 
 The MetaPathways v2.5 release is available from GitHub with binaries compatible for various Linux and Mac OSX Operating Systems:
 
-http://github.com/hallamlab/metapathways2/releases
+<http://github.com/hallamlab/metapathways2/releases>
 
 ## Load Required R Packages and Data
 
@@ -140,17 +140,17 @@ df.m.eval.pred <- melt(df.m.eval[,c("BLAST","lwr","upr")], id.vars = c("BLAST"))
 # create Figure 1b
 df.m.eval.plot <- df.m.eval
 p2 <- ggplot(df.m.eval.plot, aes(x=BLAST, y=LAST))
-p2 <- p2 + geom_point(size=3, alpha=0.005, aes(color=within))
-p2 <- p2 + scale_color_manual(values=c("#4959FE", "#000000")) 
+p2 <- p2 + geom_point(size=3, alpha=0.005)
+# p2 <- p2 + scale_color_manual(values=c("#4959FE", "#000000")) 
 p2 <- p2 + theme_bw(base_family="Gill Sans")
-p2 <- p2 + stat_smooth(formula="y ~ x", method="lm", se = FALSE, size=2)
+p2 <- p2 + stat_smooth(formula="y ~ x", method="lm", size=2, color="#464BFF")
 p2 <- p2 + xlab("BLAST E-value") + ylab("LAST E-value")
 p2 <- p2 + ggtitle("b")
 p2 <- p2 + theme(plot.title=element_text(size=30, vjust = 2),
                  axis.title.x = element_text(size=14, vjust=-0.3),
                  axis.title.y = element_text(size=14, vjust=1))
 p2 <- p2 + theme(legend.position="none")
-# p2 <- p2 + geom_line(data=df.m.eval.pred, aes(x=BLAST, y=value, group=variable), color="#E91F19", size=0.75)
+p2 <- p2 + geom_line(data=df.m.eval.pred, aes(x=BLAST, y=value, group=variable), color="#464BFF", size=0.5)
 p2
 ```
 
@@ -209,11 +209,13 @@ df.measure.sub.pred <- melt(df.measure.sub[,c("ORFs","lwr","upr")], id.vars = c(
 ```{r warning=FALSE, fig.width=6, fig.height=6}
 # create Figure 1c
 p3 <- ggplot(df.measure.sub, aes(ORFs, RPKMs))
-p3 <- p3 + geom_point(size=3, alpha=0.01, aes(color=within)) 
-p3 <- p3 + scale_color_manual(values=c("#4959FE", "#000000")) 
+#p3 <- p3 + geom_point(size=3, alpha=0.01, aes(color=within)) 
+#p3 <- p3 + scale_color_manual(values=c("#4959FE", "#000000")) 
+p3 <- p3 + geom_point(size=3, alpha=0.01)
+p3 <- p3 + scale_color_manual(values="#000000")
 p3 <- p3 + scale_x_log10(breaks=c(1,10,100,1000))
 p3 <- p3 + scale_y_log10(breaks=c(1,10,100,1000,10000)) 
-p3 <- p3 + stat_smooth(method="lm", formula="y~x", size=2) 
+p3 <- p3 + stat_smooth(method="lm", formula="y~x", size=2, color="#464BFF") 
 p3 <- p3 + theme_bw(base_family="Gill Sans")
 p3 <- p3 + ylab("RPKM Value")
 p3 <- p3 + xlab("ORF Count")
@@ -222,7 +224,7 @@ p3 <- p3 + theme(plot.title=element_text(size=30, vjust = 2),
                  axis.title.x = element_text(size=14, vjust=-0.3),
                  axis.title.y = element_text(size=14, vjust=1))
 p3 <- p3 + theme(legend.position="none")
-# p3 <- p3 + geom_line(data=df.measure.sub.pred, aes(x=ORFs, y=value, group=variable), color="#E91F19", size=0.75)
+p3 <- p3 + geom_line(data=df.measure.sub.pred, aes(x=ORFs, y=value, group=variable), color="#464BFF", size=0.5)
 p3
 ```
 
@@ -278,6 +280,7 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
 * Plot figures together
 
 ```{r warning=FALSE, message=FALSE, fig.width=16}
+quartz()
 multiplot(p1, p2, p3, cols=3)
 ```
 
