@@ -2,7 +2,7 @@
 
 Source code of the supplementary material of the Oxford Bioinformatics MetaPathways v2.5 paper:
 
-* Konwar, Hanson, Bhatia, *et al.* *MetaPathways v2.5: Quantitative functional, taxonomic, and usability improvements*. Oxford Bioinformatics. 2015 (In press).
+* Kishori M. Konwar, Niels W. Hanson, Maya P. Bhatia, Dongjae Kim, Shang-Ju Wu, Aria S. Hahn, Connor Morgan-Lang, Hiu Kan Cheung, Steven J. Hallam. MetaPathways v2.5: Quantitative functional, taxonomic, and usability improvements, Bioinformatics. June 2015. [doi:10.1093/bioinformatics/btv361](http://dx.doi.org/10.1093/bioinformatics/btv361)
 
 More information on setup and running MetaPathways v2.5 can be found directory on the [MetaPathways2 GitHub repository](https://github.com/hallamlab/metapathways2).
 
